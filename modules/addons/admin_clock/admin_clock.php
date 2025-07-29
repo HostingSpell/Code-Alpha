@@ -67,6 +67,20 @@ function admin_clock_get_activity($start, $end)
         if (!$adminId) {
             continue;
         }
+=======
+    $records = Capsule::table('tbladminlog')
+        ->where('logintime', '>=', $start)
+        ->where('logintime', '<=', $end)
+        ->get(['adminusername', 'logintime', 'logouttime', 'lastvisit']);
+
+    $admins = Capsule::table('tbladmins')->pluck('id', 'username');
+
+    $activity = [];
+    foreach ($records as $row) {
+        if (!isset($admins[$row->adminusername])) {
+            continue;
+        }
+        $adminId = $admins[$row->adminusername];
         $login  = strtotime($row->logintime);
         $logout = $row->logouttime ? strtotime($row->logouttime)
                  : ($row->lastvisit ? strtotime($row->lastvisit) : $login);
@@ -113,6 +127,23 @@ function admin_clock_get_ticket_replies($start, $end)
             continue;
         }
         $adminId = $map[$key];
+=======
+    $records = Capsule::table('tblticketreplies')
+        ->where('date', '>=', $start)
+        ->where('date', '<=', $end)
+        ->where('admin', '!=', '')
+        ->select('admin', Capsule::raw('COUNT(*) as total'))
+        ->groupBy('admin')
+        ->get();
+
+    $admins = Capsule::table('tbladmins')->pluck('id', 'username');
+
+    $counts = [];
+    foreach ($records as $row) {
+        if (!isset($admins[$row->admin])) {
+            continue;
+        }
+        $adminId = $admins[$row->admin];
         $counts[$adminId] = (int) $row->total;
     }
 
