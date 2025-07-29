@@ -52,12 +52,15 @@ function admin_clock_get_activity($start, $end)
         $admins = Capsule::table('tbladmins')->pluck('id', 'username');
         $getAdminId = function ($row) use ($admins) {
             return isset($admins[$row->adminusername]) ? $admins[$row->adminusername] : null;
+            return $admins[$row->adminusername] ?? null;
         };
     } else {
         $idColumn = $schema->hasColumn('tbladminlog', 'adminid') ? 'adminid' : 'admin_id';
         $records = $log->get([$idColumn, 'logintime', 'logouttime', 'lastvisit']);
         $getAdminId = function ($row) use ($idColumn) {
             return isset($row->$idColumn) ? $row->$idColumn : null;
+
+            return $row->$idColumn ?? null;
         };
     }
 
@@ -67,6 +70,23 @@ function admin_clock_get_activity($start, $end)
         if (!$adminId) {
             continue;
         }
+
+
+    $records = Capsule::table('tbladminlog')
+        ->where('logintime', '>=', $start)
+        ->where('logintime', '<=', $end)
+        ->get(['adminusername', 'logintime', 'logouttime', 'lastvisit']);
+
+    $admins = Capsule::table('tbladmins')->pluck('id', 'username');
+
+    $activity = [];
+    foreach ($records as $row) {
+        if (!isset($admins[$row->adminusername])) {
+            continue;
+        }
+        $adminId = $admins[$row->adminusername];
+
+
         $login  = strtotime($row->logintime);
         $logout = $row->logouttime ? strtotime($row->logouttime)
                  : ($row->lastvisit ? strtotime($row->lastvisit) : $login);
@@ -113,6 +133,25 @@ function admin_clock_get_ticket_replies($start, $end)
             continue;
         }
         $adminId = $map[$key];
+
+
+    $records = Capsule::table('tblticketreplies')
+        ->where('date', '>=', $start)
+        ->where('date', '<=', $end)
+        ->where('admin', '!=', '')
+        ->select('admin', Capsule::raw('COUNT(*) as total'))
+        ->groupBy('admin')
+        ->get();
+
+    $admins = Capsule::table('tbladmins')->pluck('id', 'username');
+
+    $counts = [];
+    foreach ($records as $row) {
+        if (!isset($admins[$row->admin])) {
+            continue;
+        }
+        $adminId = $admins[$row->admin];
+
         $counts[$adminId] = (int) $row->total;
     }
 
@@ -153,6 +192,10 @@ function admin_clock_output($vars)
             $seconds = isset($activityData[$key][$admin->id]) ? $activityData[$key][$admin->id] : 0;
             $timeStr = gmdate('H:i:s', $seconds);
             $replies = isset($ticketData[$key][$admin->id]) ? $ticketData[$key][$admin->id] : 0;
+            $seconds = $activityData[$key][$admin->id] ?? 0;
+            $timeStr = gmdate('H:i:s', $seconds);
+            $replies = $ticketData[$key][$admin->id] ?? 0;
+
             $display[$admin->id][$key] = $timeStr . ' / ' . $replies;
         }
     }
