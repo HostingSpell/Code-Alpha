@@ -45,17 +45,24 @@ function admin_clock_get_activity($start, $end)
     $records = Capsule::table('tbladminlog')
         ->where('logintime', '>=', $start)
         ->where('logintime', '<=', $end)
-        ->get(['adminid', 'logintime', 'logouttime', 'lastvisit']);
+        ->get(['adminusername', 'logintime', 'logouttime', 'lastvisit']);
+
+    $admins = Capsule::table('tbladmins')->pluck('id', 'username');
 
     $activity = [];
     foreach ($records as $row) {
-        $login  = strtotime($row->logintime);
-        $logout = $row->logouttime ? strtotime($row->logouttime) : ($row->lastvisit ? strtotime($row->lastvisit) : $login);
-        $seconds = max(0, $logout - $login);
-        if (!isset($activity[$row->adminid])) {
-            $activity[$row->adminid] = 0;
+        if (!isset($admins[$row->adminusername])) {
+            continue;
         }
-        $activity[$row->adminid] += $seconds;
+        $adminId = $admins[$row->adminusername];
+        $login  = strtotime($row->logintime);
+        $logout = $row->logouttime ? strtotime($row->logouttime)
+                 : ($row->lastvisit ? strtotime($row->lastvisit) : $login);
+        $seconds = max(0, $logout - $login);
+        if (!isset($activity[$adminId])) {
+            $activity[$adminId] = 0;
+        }
+        $activity[$adminId] += $seconds;
     }
 
     return $activity;
@@ -78,14 +85,15 @@ function admin_clock_get_ticket_replies($start, $end)
         ->groupBy('admin')
         ->get();
 
+    $admins = Capsule::table('tbladmins')->pluck('id', 'username');
+
     $counts = [];
     foreach ($records as $row) {
-        $admin = Capsule::table('tbladmins')
-            ->where('username', $row->admin)
-            ->first(['id']);
-        if ($admin) {
-            $counts[$admin->id] = (int) $row->total;
+        if (!isset($admins[$row->admin])) {
+            continue;
         }
+        $adminId = $admins[$row->admin];
+        $counts[$adminId] = (int) $row->total;
     }
 
     return $counts;
