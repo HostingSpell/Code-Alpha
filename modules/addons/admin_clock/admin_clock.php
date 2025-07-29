@@ -42,6 +42,32 @@ use WHMCS\Database\Capsule;
  */
 function admin_clock_get_activity($start, $end)
 {
+    $log = Capsule::table('tbladminlog')
+        ->where('logintime', '>=', $start)
+        ->where('logintime', '<=', $end);
+
+    $schema = Capsule::schema();
+    if ($schema->hasColumn('tbladminlog', 'adminusername')) {
+        $records = $log->get(['adminusername', 'logintime', 'logouttime', 'lastvisit']);
+        $admins = Capsule::table('tbladmins')->pluck('id', 'username');
+        $getAdminId = function ($row) use ($admins) {
+            return $admins[$row->adminusername] ?? null;
+        };
+    } else {
+        $idColumn = $schema->hasColumn('tbladminlog', 'adminid') ? 'adminid' : 'admin_id';
+        $records = $log->get([$idColumn, 'logintime', 'logouttime', 'lastvisit']);
+        $getAdminId = function ($row) use ($idColumn) {
+            return $row->$idColumn ?? null;
+        };
+    }
+
+    $activity = [];
+    foreach ($records as $row) {
+        $adminId = $getAdminId($row);
+        if (!$adminId) {
+            continue;
+        }
+=======
     $records = Capsule::table('tbladminlog')
         ->where('logintime', '>=', $start)
         ->where('logintime', '<=', $end)
@@ -77,6 +103,31 @@ function admin_clock_get_activity($start, $end)
  */
 function admin_clock_get_ticket_replies($start, $end)
 {
+    $schema = Capsule::schema();
+    $field = $schema->hasColumn('tblticketreplies', 'admin') ? 'admin' : 'adminid';
+
+    $records = Capsule::table('tblticketreplies')
+        ->where('date', '>=', $start)
+        ->where('date', '<=', $end)
+        ->where($field, '!=', '')
+        ->select($field, Capsule::raw('COUNT(*) as total'))
+        ->groupBy($field)
+        ->get();
+
+    if ($field === 'admin') {
+        $map = Capsule::table('tbladmins')->pluck('id', 'username');
+    } else {
+        $map = Capsule::table('tbladmins')->pluck('id', 'id');
+    }
+
+    $counts = [];
+    foreach ($records as $row) {
+        $key = $row->$field;
+        if (!isset($map[$key])) {
+            continue;
+        }
+        $adminId = $map[$key];
+=======
     $records = Capsule::table('tblticketreplies')
         ->where('date', '>=', $start)
         ->where('date', '<=', $end)
