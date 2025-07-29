@@ -51,12 +51,15 @@ function admin_clock_get_activity($start, $end)
         $records = $log->get(['adminusername', 'logintime', 'logouttime', 'lastvisit']);
         $admins = Capsule::table('tbladmins')->pluck('id', 'username');
         $getAdminId = function ($row) use ($admins) {
+            return isset($admins[$row->adminusername]) ? $admins[$row->adminusername] : null;
             return $admins[$row->adminusername] ?? null;
         };
     } else {
         $idColumn = $schema->hasColumn('tbladminlog', 'adminid') ? 'adminid' : 'admin_id';
         $records = $log->get([$idColumn, 'logintime', 'logouttime', 'lastvisit']);
         $getAdminId = function ($row) use ($idColumn) {
+            return isset($row->$idColumn) ? $row->$idColumn : null;
+
             return $row->$idColumn ?? null;
         };
     }
@@ -67,6 +70,7 @@ function admin_clock_get_activity($start, $end)
         if (!$adminId) {
             continue;
         }
+
 
     $records = Capsule::table('tbladminlog')
         ->where('logintime', '>=', $start)
@@ -81,6 +85,7 @@ function admin_clock_get_activity($start, $end)
             continue;
         }
         $adminId = $admins[$row->adminusername];
+
 
         $login  = strtotime($row->logintime);
         $logout = $row->logouttime ? strtotime($row->logouttime)
@@ -128,6 +133,7 @@ function admin_clock_get_ticket_replies($start, $end)
             continue;
         }
         $adminId = $map[$key];
+
 
     $records = Capsule::table('tblticketreplies')
         ->where('date', '>=', $start)
@@ -183,9 +189,13 @@ function admin_clock_output($vars)
     $display = [];
     foreach ($admins as $admin) {
         foreach ($timeframes as $key => $frame) {
+            $seconds = isset($activityData[$key][$admin->id]) ? $activityData[$key][$admin->id] : 0;
+            $timeStr = gmdate('H:i:s', $seconds);
+            $replies = isset($ticketData[$key][$admin->id]) ? $ticketData[$key][$admin->id] : 0;
             $seconds = $activityData[$key][$admin->id] ?? 0;
             $timeStr = gmdate('H:i:s', $seconds);
             $replies = $ticketData[$key][$admin->id] ?? 0;
+
             $display[$admin->id][$key] = $timeStr . ' / ' . $replies;
         }
     }

@@ -1,3 +1,5 @@
+<h2 class="text-center">{$LANG.admin_activity}</h2>
+
 <table class="table table-striped" style="min-width:800px;">
     <thead>
         <tr>
@@ -19,3 +21,4 @@
     </tbody>
 </table>
 <div class="text-center text-muted">{$LANG.current_time} {$currentTime}</div>
+
